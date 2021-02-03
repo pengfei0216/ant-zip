@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Objects;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tools.zip.ZipEntry;
@@ -38,9 +37,15 @@ public class ZipCompress {
 	 * 是否保存文件全路径。 <br/>
 	 * 保存文件全路径：将该文件所在的目录一并写入到压缩包中。如：C:\\temp\\file.txt 写入到压缩包中就在C: temp
 	 * 两层目录下面。一般用在两个电脑中相同目录的文件用压缩包进行传输的情况。 <br/>
-	 * 不保存文件全路径：即直接将该文件写到压缩包中
+	 * 不保存文件全路径：即直接将该文件写到压缩包中<br/>
+	 * 这个属性会被 {@link #fileNameInterceptor}覆盖
 	 */
 	private boolean saveFileFullPath = false;
+
+	/**
+	 * 文件名称拦截器
+	 */
+	private ZipCompressFileNameInterceptor fileNameInterceptor;
 
 	/**
 	 * 编码
@@ -218,6 +223,14 @@ public class ZipCompress {
 		return saveFileFullPath;
 	}
 
+	public ZipCompressFileNameInterceptor getFileNameInterceptor() {
+		return fileNameInterceptor;
+	}
+
+	public void setFileNameInterceptor(ZipCompressFileNameInterceptor fileNameInterceptor) {
+		this.fileNameInterceptor = fileNameInterceptor;
+	}
+
 	// ==================================================execute==================================================
 
 	/**
@@ -244,12 +257,7 @@ public class ZipCompress {
 		}
 		for (File file : files) {
 			String fileName = file.getAbsolutePath();
-			String compressFileName;
-			if (saveFileFullPath) {
-				compressFileName = fileName;
-			} else {
-				compressFileName = FilenameUtils.getName(fileName);
-			}
+			String compressFileName = getCompressFileName(fileName);
 			out.putNextEntry(new ZipEntry(compressFileName));
 			FileInputStream fileInputStream = new FileInputStream(file);
 			byte[] data = new byte[1024];
@@ -264,6 +272,28 @@ public class ZipCompress {
 		}
 		out.close();
 		return zipFile;
+	}
+
+	// ==================================================support==================================================
+
+	/**
+	 * 获取写入压缩包的文件名称
+	 * 
+	 * @author PengFei
+	 * @date 2021年2月3日上午9:21:30
+	 * @param fileName 文件名称
+	 * @return 写入到压缩包的文件名称
+	 */
+	protected String getCompressFileName(String fileName) {
+		ZipCompressFileNameInterceptor fileNameInterceptor = this.fileNameInterceptor;
+		if (null == fileNameInterceptor) {
+			if (saveFileFullPath) {
+				fileNameInterceptor = ZipConstant.saveFullNameCompressFileNameInterceptor;
+			} else {
+				fileNameInterceptor = ZipConstant.defaultCompressFileNameInterceptor;
+			}
+		}
+		return fileNameInterceptor.process(fileName);
 	}
 
 }
